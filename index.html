@@ -47,12 +47,12 @@
   #btnSide, #btnSideClose { display:none; }
 
   #term {
-    overflow:auto; padding:18px; text-align:center; -webkit-overflow-scrolling:touch;
-    background:radial-gradient(120% 80% at 50% 0%, #141821 0%, var(--bg) 60%);
+    position:relative; overflow:auto; padding:0; -webkit-overflow-scrolling:touch;
+    background:#000; display:flex; align-items:center; justify-content:center;
   }
   #screen_container {
-    position:relative; display:inline-block; text-align:left; border:1px solid var(--line);
-    background:#000; box-shadow:0 0 0 6px #000;
+    position:relative; display:inline-block; text-align:left;
+    background:#000;
   }
   #screen_container > div {
     white-space:pre;
@@ -66,7 +66,12 @@
     position:absolute; left:0; bottom:0; width:1px; height:1px; padding:0; margin:0;
     border:0; opacity:0; font-size:16px; resize:none; overflow:hidden;
   }
-  .hint { color:var(--muted); font-size:14px; margin:10px 0 0; }
+  .hint {
+    position:absolute; left:16px; right:16px; bottom:8px; margin:0; text-align:center;
+    color:var(--muted); font-size:12px; pointer-events:none;
+    transition:opacity .4s; opacity:1;
+  }
+  body.typed .hint { opacity:0; }
 
   /* Termux-style key bar: no soft keyboard has Esc, arrows, Ctrl or Tab. */
   #extraKeys {
@@ -131,7 +136,7 @@
     #btnSide { display:inline-block; }
     #btnSideClose { display:inline-block; }
     #extraKeys { display:grid; }
-    #term { padding:6px; text-align:left; }
+    #term { padding:0; align-items:flex-start; justify-content:flex-start; }
     .hint { display:none; }
 
     /* the command list becomes a bottom sheet instead of eating the screen */
@@ -256,7 +261,7 @@
 
   var DB = "linux-classroom", STORE = "kv";
   var KEY_STATE = "machine-state", KEY_GOLDEN = "machine-golden";
-  var CMD_KEY = "classroom-commands", LAYOUT_KEY = "classroom-layout", FONT_KEY = "classroom-font";
+  var CMD_KEY = "classroom-commands", LAYOUT_KEY = "classroom-layout";
 
   // Set from image-version.json, so rebuilding the guest throws away old
   // snapshots instead of trying to restore a machine from a different image.
@@ -525,20 +530,33 @@
   /* terminal text size                                                  */
   /* ------------------------------------------------------------------ */
 
-  var fontSize = 20;
+  var fontSize = 20, autoFit = true;
 
-  function setFontSize(n, save) {
-    var closest = FONT_SIZES.reduce(function (a, b) {
-      return Math.abs(b - n) < Math.abs(a - n) ? b : a;
-    });
-    fontSize = closest;
-    document.documentElement.style.setProperty("--term-font", closest + "px");
-    if (save) { try { localStorage.setItem(FONT_KEY, String(closest)); } catch (e) {} }
+  function applyFont(px) {
+    fontSize = px;
+    document.documentElement.style.setProperty("--term-font", px + "px");
   }
+
+  // The VGA text mode is always 80 columns by 25 rows. Pick the largest font
+  // that fits all of them inside the pane, so the terminal fills the space
+  // instead of floating in it. A/A+ switch to manual sizing for the session.
+  function fitFont() {
+    if (!autoFit) return;
+    var el = $("term");
+    if (!el) return;
+    var w = el.clientWidth, h = el.clientHeight;
+    if (!w || !h) return;
+    var byWidth = w / (80 * 0.605);
+    var byHeight = h / (25 * 1.18);
+    applyFont(Math.max(12, Math.min(40, Math.floor(Math.min(byWidth, byHeight)))));
+  }
+
   function stepFont(dir) {
-    var i = FONT_SIZES.indexOf(fontSize);
-    i = Math.max(0, Math.min(FONT_SIZES.length - 1, i + dir));
-    setFontSize(FONT_SIZES[i], true);
+    autoFit = false;
+    var next = dir > 0
+      ? FONT_SIZES.filter(function (n) { return n > fontSize; })[0]
+      : FONT_SIZES.filter(function (n) { return n < fontSize; }).pop();
+    if (next) applyFont(next);
   }
 
   /* ------------------------------------------------------------------ */
@@ -594,6 +612,7 @@
   }
 
   function sendKeyBytes(codes) {
+    document.body.classList.add("typed");
     if (!emu || !booted || !codes || !codes.length) return;
     markDirty();
     var seq = codes.slice();
@@ -929,6 +948,9 @@
   window.addEventListener("keydown", function () {
     if (heldMods.length) setTimeout(function () { releaseMods(true); }, 150);
   }, true);
+  window.addEventListener("keydown", function () {
+    document.body.classList.add("typed");
+  }, { once: true });
   window.addEventListener("blur", function () { releaseMods(true); });
 
   function showSide(on) {
@@ -1142,11 +1164,8 @@
 
   async function main() {
     try { LAYOUT = localStorage.getItem(LAYOUT_KEY) === "fr" ? "fr" : "us"; } catch (e) {}
-    var savedFont = 0;
-    try { savedFont = parseInt(localStorage.getItem(FONT_KEY), 10) || 0; } catch (e) {}
-    // 80 columns never fit a phone; start smaller there and let A+/A- adjust.
-    var narrow = window.matchMedia && window.matchMedia("(max-width:600px)").matches;
-    setFontSize(savedFont || (narrow ? 14 : 20), false);
+    fitFont();
+    window.addEventListener("resize", fitFont);
     $("btnLayout").textContent = "Keyboard: " + LAYOUT.toUpperCase();
 
     groups = loadCommands();
