@@ -1,0 +1,32 @@
+# Build workspace: v86 clone, docker export, intermediate rootfs tarball
+.build/
+
+# Generated guest images live in the repo on purpose (the site is static and
+# GitHub Pages serves them), but never commit local leftovers or snapshots:
+*.tar
+*.state
+*.bin.zst.tmp
+alpine-rootfs-flat/*.tmp
+
+# Machine exports from the browser
+linux-classroom-*.bin
+
+# Node
+node_modules/
+npm-debug.log*
+yarn.lock
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local secrets and env
+.env
+.env.*

@@ -1,0 +1,19 @@
+#!/bin/sh
+# Classroom default: new interactive accounts get bash instead of /bin/sh.
+# `adduser bob team` (two arguments) means "add bob to a group", so only
+# inject -s when this really is a new user.
+case " $* " in
+  *" -s "*) exec /bin/busybox adduser "$@" ;;
+esac
+for arg in "$@"; do
+  case "$arg" in
+    -*) ;;
+    *)
+      if ! grep -q "^$arg:" /etc/passwd 2>/dev/null; then
+        exec /bin/busybox adduser -s /bin/bash "$@"
+      fi
+      break
+      ;;
+  esac
+done
+exec /bin/busybox adduser "$@"

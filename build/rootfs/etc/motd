@@ -1,0 +1,5 @@
+
+  Linux Classroom -- Alpine Linux with bash, nano, man and gcc.
+
+  Useful: ls, cd, cat, nano, man <command>, gcc hello.c -o hello, doas <cmd>
+

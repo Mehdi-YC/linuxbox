@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Linux Classroom</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg:#0f1115; --panel:#171a21; --line:#2a2f3a; --text:#e6e6e6; --muted:#8b93a1;
+    --accent:#4fd1c5; --danger:#f87171;
+    --term-font:20px;
+    --ui-font:17px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin:0; height:100%; background:var(--bg); color:var(--text);
+    font:var(--ui-font)/1.45 system-ui, sans-serif;
+  }
+  #app { display:grid; grid-template-columns:1fr 380px; grid-template-rows:auto 1fr; height:100%; }
+
+  header {
+    grid-column:1 / 3; display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+    padding:10px 16px; background:var(--panel); border-bottom:1px solid var(--line);
+  }
+  header h1 { font-size:20px; margin:0 10px 0 0; letter-spacing:.02em; }
+  #status { color:var(--accent); font-size:15px; margin-right:auto; }
+  #status.bad { color:var(--danger); }
+
+  button {
+    background:#222733; color:var(--text); border:1px solid var(--line); border-radius:8px;
+    padding:8px 14px; cursor:pointer; font:inherit; font-size:15px;
+  }
+  button:hover { border-color:var(--accent); }
+  button:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+  button.danger:hover { border-color:var(--danger); color:var(--danger); }
+  button.key { font-family:"DejaVu Sans Mono", monospace; font-size:15px; padding:8px 12px; }
+  .zoombox { display:flex; gap:4px; align-items:center; }
+  .zoombox button { padding:6px 10px; font-size:15px; }
+
+  #term { overflow:auto; padding:18px; text-align:center; }
+  #screen_container {
+    display:inline-block; text-align:left; border:1px solid var(--line);
+    background:#000; box-shadow:0 0 0 6px #000;
+  }
+  #screen_container > div {
+    white-space:pre;
+    font:var(--term-font)/1.18 "DejaVu Sans Mono", "Liberation Mono", Menlo, Consolas, monospace;
+    color:#ccc;
+  }
+  .hint { color:var(--muted); font-size:14px; margin:10px 0 0; }
+
+  aside { border-left:1px solid var(--line); background:var(--panel); overflow:auto; padding:14px; }
+  aside h2 { font-size:12px; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); margin:18px 0 8px; }
+  aside h2:first-child { margin-top:0; }
+
+  details { margin-bottom:10px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; }
+  summary { cursor:pointer; font-weight:600; padding:2px 0; }
+  .cmd { display:flex; gap:6px; margin-top:8px; }
+  .cmd button.run {
+    flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .cmd button.run small { color:var(--muted); margin-left:8px; font-family:"DejaVu Sans Mono", monospace; }
+  .cmd button.del { display:none; color:var(--danger); padding:8px 11px; }
+  body.editing .cmd button.del { display:inline-block; }
+
+  input, textarea {
+    width:100%; background:#0f1115; color:var(--text); border:1px solid var(--line);
+    border-radius:8px; padding:10px 12px; margin-bottom:8px; font:inherit; font-size:16px;
+  }
+  textarea { resize:vertical; min-height:64px; font-family:"DejaVu Sans Mono", monospace; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  #storage { color:var(--muted); font-size:13px; margin-top:18px; line-height:1.5; }
+
+  @media (max-width:900px) {
+    #app { grid-template-columns:1fr; grid-template-rows:auto 1fr auto; }
+    header { grid-column:1; }
+    aside { border-left:0; border-top:1px solid var(--line); max-height:45vh; }
+    #term { padding:8px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Linux Classroom</h1>
+    <span id="status">starting...</span>
+    <button id="btnLayout" title="Switch keyboard layout (Ctrl+Alt+K)">Keyboard: US</button>
+    <div class="zoombox" title="Terminal text size (Ctrl+Alt+- and Ctrl+Alt+=)">
+      <button id="btnFontDown" aria-label="Smaller text">A&minus;</button>
+      <button id="btnFontUp" aria-label="Bigger text">A+</button>
+    </div>
+    <button id="btnSave" title="Save the whole machine in this browser">Save</button>
+    <button id="btnExport" title="Download your machine as a file (backup)">Export</button>
+    <button id="btnImport" title="Load a machine file you exported earlier">Import</button>
+    <button id="btnReset" class="danger" title="Forget your changes and go back to a clean machine">Reset</button>
+    <button id="btnFull">Fullscreen</button>
+    <input id="fileImport" type="file" hidden>
+  </header>
+
+  <main id="term">
+    <div id="screen_container"><div></div><canvas></canvas></div>
+    <p class="hint">Click the screen and type. Shortcuts: Ctrl+Alt+K switches US/FR, Ctrl+Alt+- and Ctrl+Alt+= change text size. The machine is saved automatically every minute.</p>
+  </main>
+
+  <aside id="side">
+    <h2>Keys</h2>
+    <div class="row">
+      <button class="key" data-key="ctrlc">Ctrl+C</button>
+      <button class="key" data-key="ctrld">Ctrl+D</button>
+      <button class="key" data-key="enter">Enter</button>
+      <button class="key" data-key="tab">Tab</button>
+    </div>
+
+    <h2>Paste</h2>
+    <textarea id="pasteText" placeholder="Paste or type text here, then send it to the machine"></textarea>
+    <div class="row">
+      <button id="btnPaste">Send</button>
+      <button id="btnPasteEnter">Send and press Enter</button>
+    </div>
+
+    <h2>Commands</h2>
+    <p class="hint" style="margin:-4px 0 8px">Click a command to run it. Shift+click types it without pressing Enter, so you can edit it first.</p>
+    <div id="groups"></div>
+
+    <h2>Add your own</h2>
+    <input id="newLabel" placeholder="Label (e.g. Show my files)">
+    <input id="newCmd" placeholder="Command (e.g. ls -la)">
+    <input id="newGroup" placeholder="Group (e.g. My commands)" list="groupList">
+    <datalist id="groupList"></datalist>
+    <div class="row">
+      <button id="btnAdd">Add</button>
+      <button id="btnEdit">Delete mode</button>
+      <button id="btnDefaults" class="danger">Reset list</button>
+    </div>
+
+    <p id="storage">Your machine is stored in this browser only. Export it if you need a backup.</p>
+  </aside>
+</div>
+
+<script src="libv86.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------ */
+  /* settings                                                            */
+  /* ------------------------------------------------------------------ */
+
+  // Keep this modest: the saved machine is a full memory dump. gcc still
+  // works in 192 MB, and the dump is compressed before it is stored.
+  var MEMORY = 192 * 1024 * 1024;
+
+  var DB = "linux-classroom", STORE = "kv";
+  var KEY_STATE = "machine-state", KEY_GOLDEN = "machine-golden";
+  var CMD_KEY = "classroom-commands", LAYOUT_KEY = "classroom-layout", FONT_KEY = "classroom-font";
+
+  // Set from image-version.json, so rebuilding the guest throws away old
+  // snapshots instead of trying to restore a machine from a different image.
+  var IMAGE = "dev";
+
+  var FONT_SIZES = [16, 18, 20, 22, 24, 26, 28, 30, 34];
+
+  var DEFAULT_COMMANDS = [
+    { name: "Files", items: [
+      { label: "List files",        cmd: "ls -la" },
+      { label: "Where am I?",       cmd: "pwd" },
+      { label: "Make a folder",     cmd: "mkdir demo && cd demo" },
+      { label: "Create a file",     cmd: "echo hello > file.txt" },
+      { label: "Read a file",       cmd: "cat file.txt" },
+      { label: "Copy a file",       cmd: "cp file.txt copy.txt" },
+      { label: "Search in files",   cmd: "grep -r hello ." },
+      { label: "Find files",        cmd: "find . -name \"*.txt\"" },
+      { label: "Edit with nano",    cmd: "nano file.txt" },
+      { label: "Help on a command",  cmd: "ls --help" }
+    ]},
+    { name: "Users and groups", items: [
+      { label: "Who am I?",         cmd: "whoami" },
+      { label: "My id and groups",  cmd: "id" },
+      { label: "List all users",    cmd: "cat /etc/passwd" },
+      { label: "List all groups",   cmd: "cat /etc/group" },
+      { label: "Add user alice",    cmd: "adduser -D alice" },
+      { label: "Set alice password",cmd: "passwd alice" },
+      { label: "Add group team",    cmd: "addgroup team" },
+      { label: "Put alice in team", cmd: "adduser alice team" },
+      { label: "Become alice",      cmd: "su - alice" },
+      { label: "Delete user alice", cmd: "deluser alice" },
+      { label: "Manual: passwd file", cmd: "man 5 passwd" }
+    ]},
+    { name: "Permissions", items: [
+      { label: "Show permissions",  cmd: "ls -l" },
+      { label: "Owner only (600)",  cmd: "chmod 600 file.txt" },
+      { label: "Everyone reads (644)", cmd: "chmod 644 file.txt" },
+      { label: "Make executable",   cmd: "chmod +x file.txt" },
+      { label: "Change owner",      cmd: "chown alice file.txt" },
+      { label: "Change group",      cmd: "chgrp team file.txt" },
+      { label: "A locked file",     cmd: "echo secret > locked.txt && chmod 000 locked.txt && cat locked.txt" },
+      { label: "Run as root (doas)",cmd: "doas whoami" }
+    ]},
+    { name: "Programs", items: [
+      { label: "Which shell am I in?", cmd: "echo $SHELL; echo $0" },
+      { label: "Compile a program",  cmd: "printf '#include <stdio.h>\\nint main(void){puts(\"hello from C\");return 0;}\\n' > hello.c && gcc hello.c -o hello && ./hello" },
+      { label: "Show compiler version", cmd: "gcc --version" },
+      { label: "Manual: printf",     cmd: "man 3 printf" }
+    ]},
+    { name: "System", items: [
+      { label: "System info",       cmd: "uname -a" },
+      { label: "Disk space",        cmd: "df -h" },
+      { label: "Memory",            cmd: "free -m" },
+      { label: "Running processes", cmd: "ps" },
+      { label: "Date and time",     cmd: "date" },
+      { label: "Installed packages",cmd: "apk info" },
+      { label: "Clear screen",      cmd: "clear" }
+    ]}
+  ];
+
+  /* ------------------------------------------------------------------ */
+  /* IndexedDB (one connection, reused)                                  */
+  /* ------------------------------------------------------------------ */
+
+  var dbPromise = null;
+
+  function idb() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise(function (resolve, reject) {
+      var r = indexedDB.open(DB, 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore(STORE); };
+      r.onsuccess = function () { resolve(r.result); };
+      r.onerror = function () { reject(r.error); };
+    }).catch(function (e) { dbPromise = null; throw e; });
+    return dbPromise;
+  }
+  function idbGet(k) {
+    return idb().then(function (db) { return new Promise(function (resolve, reject) {
+      var q = db.transaction(STORE).objectStore(STORE).get(k);
+      q.onsuccess = function () { resolve(q.result); };
+      q.onerror = function () { reject(q.error); };
+    }); });
+  }
+  function idbSet(k, v) {
+    return idb().then(function (db) { return new Promise(function (resolve, reject) {
+      var t = db.transaction(STORE, "readwrite");
+      t.objectStore(STORE).put(v, k);
+      t.oncomplete = function () { resolve(); };
+      t.onerror = function () { reject(t.error); };
+    }); });
+  }
+  function idbDel(k) {
+    return idb().then(function (db) { return new Promise(function (resolve, reject) {
+      var t = db.transaction(STORE, "readwrite");
+      t.objectStore(STORE).delete(k);
+      t.oncomplete = function () { resolve(); };
+      t.onerror = function () { reject(t.error); };
+    }); });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* compression: snapshots are mostly idle RAM, they gzip very well     */
+  /* ------------------------------------------------------------------ */
+
+  function gzip(buf) {
+    if (typeof CompressionStream === "undefined") return Promise.resolve(null);
+    return new Response(new Blob([buf]).stream().pipeThrough(new CompressionStream("gzip")))
+      .arrayBuffer().catch(function () { return null; });
+  }
+  function gunzip(buf) {
+    if (typeof DecompressionStream === "undefined") return Promise.reject(new Error("no DecompressionStream"));
+    return new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip")))
+      .arrayBuffer();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* helpers                                                             */
+  /* ------------------------------------------------------------------ */
+
+  var $ = function (id) { return document.getElementById(id); };
+  var emu = null, saving = false, booted = false, goldenBuilding = false;
+
+  function setStatus(msg, bad) {
+    var s = $("status");
+    s.textContent = msg;
+    if (bad) s.classList.add("bad"); else s.classList.remove("bad");
+  }
+  function clock() { return new Date().toLocaleTimeString(); }
+  function mb(n) { return Math.round(n / 1048576) + " MB"; }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  /* ------------------------------------------------------------------ */
+  /* keyboard layouts                                                    */
+  /*                                                                     */
+  /* Two layouts, two halves each: a real keymap loaded inside the guest  */
+  /* (so physical typing works), and a table here (so commands typed by  */
+  /* the page produce the right keys in that guest keymap).              */
+  /* ------------------------------------------------------------------ */
+
+  var SHIFT = 0x2A, SHIFT_UP = 0xAA;
+  var ALTGR = [0xE0, 0x38], ALTGR_UP = [0xE0, 0xB8];
+  var ENTER = [0x1C, 0x9C];
+
+  // rows: [make code, plain, shifted, altGr]
+  var US_ROWS = [
+    [0x02, "1", "!"], [0x03, "2", "@"], [0x04, "3", "#"], [0x05, "4", "$"],
+    [0x06, "5", "%"], [0x07, "6", "^"], [0x08, "7", "&"], [0x09, "8", "*"],
+    [0x0A, "9", "("], [0x0B, "0", ")"], [0x0C, "-", "_"], [0x0D, "=", "+"],
+    [0x0E, "\b"], [0x0F, "\t"], [0x1C, "\n"],
+    [0x10, "q", "Q"], [0x11, "w", "W"], [0x12, "e", "E"], [0x13, "r", "R"],
+    [0x14, "t", "T"], [0x15, "y", "Y"], [0x16, "u", "U"], [0x17, "i", "I"],
+    [0x18, "o", "O"], [0x19, "p", "P"], [0x1A, "[", "{"], [0x1B, "]", "}"],
+    [0x1E, "a", "A"], [0x1F, "s", "S"], [0x20, "d", "D"], [0x21, "f", "F"],
+    [0x22, "g", "G"], [0x23, "h", "H"], [0x24, "j", "J"], [0x25, "k", "K"],
+    [0x26, "l", "L"], [0x27, ";", ":"], [0x28, "'", "\""], [0x29, "`", "~"],
+    [0x2B, "\\", "|"], [0x2C, "z", "Z"], [0x2D, "x", "X"], [0x2E, "c", "C"],
+    [0x2F, "v", "V"], [0x30, "b", "B"], [0x31, "n", "N"], [0x32, "m", "M"],
+    [0x33, ",", "<"], [0x34, ".", ">"], [0x35, "/", "?"], [0x39, " "]
+  ];
+
+  // French AZERTY (fr-azerty keymap)
+  var FR_ROWS = [
+    [0x02, "&", "1"], [0x03, "é", "2", "~"], [0x04, "\"", "3", "#"],
+    [0x05, "'", "4", "{"], [0x06, "(", "5", "["], [0x07, "-", "6", "|"],
+    [0x08, "è", "7", "`"], [0x09, "_", "8", "\\"], [0x0A, "ç", "9", "^"],
+    [0x0B, "à", "0", "@"], [0x0C, ")", "°"], [0x0D, "=", "+"],
+    [0x0E, "\b"], [0x0F, "\t"], [0x1C, "\n"],
+    [0x10, "a", "A"], [0x11, "z", "Z"], [0x12, "e", "E", "€"], [0x13, "r", "R"],
+    [0x14, "t", "T"], [0x15, "y", "Y"], [0x16, "u", "U"], [0x17, "i", "I"],
+    [0x18, "o", "O"], [0x19, "p", "P"], [0x1A, "^", "¨"], [0x1B, "$", "£"],
+    [0x1E, "q", "Q"], [0x1F, "s", "S"], [0x20, "d", "D"], [0x21, "f", "F"],
+    [0x22, "g", "G"], [0x23, "h", "H"], [0x24, "j", "J"], [0x25, "k", "K"],
+    [0x26, "l", "L"], [0x27, "m", "M"], [0x28, "ù", "%"], [0x29, "²"],
+    [0x2B, "*", "µ"], [0x2C, "w", "W"], [0x2D, "x", "X"], [0x2E, "c", "C"],
+    [0x2F, "v", "V"], [0x30, "b", "B"], [0x31, "n", "N"], [0x32, ",", "?"],
+    [0x33, ";", "."], [0x34, ":", "/"], [0x35, "!", "§"], [0x39, " "],
+    [0x56, "<", ">"]
+  ];
+
+  function buildMap(rows) {
+    var map = Object.create(null);
+    function add(ch, seq) { if (ch) map[ch] = seq; }
+    rows.forEach(function (r) {
+      var code = r[0];
+      add(r[1], [code, code | 0x80]);
+      add(r[2], [SHIFT, code, code | 0x80, SHIFT_UP]);
+      add(r[3], ALTGR.concat([code, code | 0x80], ALTGR_UP));
+    });
+    return map;
+  }
+
+  var LAYOUTS = { us: buildMap(US_ROWS), fr: buildMap(FR_ROWS) };
+  var LAYOUT = "us";
+  var KEYMAP_FILE = { us: "/usr/share/bkeymaps/us/us.bmap.gz", fr: "/usr/share/bkeymaps/fr/fr-azerty.bmap.gz" };
+
+  var warnedChars = false;
+
+  function textCodes(str) {
+    var map = LAYOUTS[LAYOUT], codes = [], missing = [];
+    for (var i = 0; i < str.length; i++) {
+      var ch = str[i];
+      if (ch === "\r") continue;
+      var seq = map[ch];
+      if (!seq) {
+        // Letters with accents the keymap cannot produce: skip, and say so once.
+        if (missing.indexOf(ch) === -1) missing.push(ch);
+        continue;
+      }
+      for (var j = 0; j < seq.length; j++) codes.push(seq[j]);
+    }
+    if (missing.length && !warnedChars) {
+      warnedChars = true;
+      setStatus("cannot type these characters: " + missing.join(" "), true);
+    }
+    return codes;
+  }
+
+  function sendText(str) {
+    if (!emu) return;
+    var codes = textCodes(str);
+    if (codes.length) emu.keyboard_send_scancodes(codes);
+  }
+
+  // The guest keymap is global to the kernel, so it can be changed from the
+  // serial console (root, separate from the screen) without disturbing the
+  // student's shell.
+  function applyGuestLayout() {
+    if (!emu) return;
+    var file = KEYMAP_FILE[LAYOUT] || KEYMAP_FILE.us;
+    emu.serial0_send("busybox zcat " + file + " | busybox loadkmap\n");
+  }
+
+  function setLayout(next, quiet) {
+    LAYOUT = next === "fr" ? "fr" : "us";
+    try { localStorage.setItem(LAYOUT_KEY, LAYOUT); } catch (e) {}
+    $("btnLayout").textContent = "Keyboard: " + LAYOUT.toUpperCase();
+    applyGuestLayout();
+    if (!quiet) setStatus("keyboard layout: " + LAYOUT.toUpperCase());
+  }
+
+  function toggleLayout() {
+    setLayout(LAYOUT === "fr" ? "us" : "fr");
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* terminal text size                                                  */
+  /* ------------------------------------------------------------------ */
+
+  var fontSize = 20;
+
+  function setFontSize(n, save) {
+    var closest = FONT_SIZES.reduce(function (a, b) {
+      return Math.abs(b - n) < Math.abs(a - n) ? b : a;
+    });
+    fontSize = closest;
+    document.documentElement.style.setProperty("--term-font", closest + "px");
+    if (save) { try { localStorage.setItem(FONT_KEY, String(closest)); } catch (e) {} }
+  }
+  function stepFont(dir) {
+    var i = FONT_SIZES.indexOf(fontSize);
+    i = Math.max(0, Math.min(FONT_SIZES.length - 1, i + dir));
+    setFontSize(FONT_SIZES[i], true);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* running commands                                                    */
+  /* ------------------------------------------------------------------ */
+
+  var KEYS = {
+    enter: ENTER,
+    tab: [0x0F, 0x8F],
+    ctrlc: [0x1D, 0x2E, 0xAE, 0x9D],
+    ctrld: [0x1D, 0x20, 0xA0, 0x9D]
+  };
+
+  function run(cmd, pressEnter) {
+    if (!emu || !booted) { setStatus("the machine is not ready yet", true); return; }
+    sendText(cmd);
+    if (pressEnter) emu.keyboard_send_scancodes(ENTER);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* command list                                                        */
+  /* ------------------------------------------------------------------ */
+
+  var groups;
+
+  function loadCommands() {
+    try {
+      var raw = localStorage.getItem(CMD_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return JSON.parse(JSON.stringify(DEFAULT_COMMANDS));
+  }
+  function saveCommands() {
+    try { localStorage.setItem(CMD_KEY, JSON.stringify(groups)); } catch (e) {}
+  }
+
+  function renderCommands() {
+    var host = $("groups"), list = $("groupList");
+    host.innerHTML = ""; list.innerHTML = "";
+    groups.forEach(function (g, gi) {
+      var opt = document.createElement("option");
+      opt.value = g.name; list.appendChild(opt);
+
+      var d = document.createElement("details");
+      d.open = gi < 2;
+      var sm = document.createElement("summary");
+      sm.textContent = g.name; d.appendChild(sm);
+
+      g.items.forEach(function (it, ii) {
+        var row = document.createElement("div"); row.className = "cmd";
+        var b = document.createElement("button"); b.className = "run";
+        b.title = it.cmd;
+        b.appendChild(document.createTextNode(it.label));
+        var small = document.createElement("small"); small.textContent = it.cmd;
+        b.appendChild(small);
+        b.addEventListener("click", function (e) { run(it.cmd, !e.shiftKey); b.blur(); });
+
+        var x = document.createElement("button"); x.className = "del";
+        x.textContent = "\u00d7"; x.title = "Delete";
+        x.addEventListener("click", function () {
+          g.items.splice(ii, 1);
+          if (!g.items.length) groups.splice(gi, 1);
+          saveCommands(); renderCommands();
+        });
+
+        row.appendChild(b); row.appendChild(x); d.appendChild(row);
+      });
+      host.appendChild(d);
+    });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* saving, restoring, exporting                                        */
+  /* ------------------------------------------------------------------ */
+
+  function validRecord(rec) {
+    return rec && !(rec instanceof ArrayBuffer) && rec.v === IMAGE &&
+           rec.m === MEMORY && rec.data instanceof ArrayBuffer;
+  }
+
+  async function readState(key) {
+    var rec = await idbGet(key);
+    if (!rec) return null;
+    if (!validRecord(rec)) {
+      // Snapshot from another image build or another memory size: it cannot
+      // be restored, so drop it and boot cleanly.
+      await idbDel(key).catch(function () {});
+      return null;
+    }
+    return rec;
+  }
+
+  async function inflate(rec) {
+    return rec.gz ? gunzip(rec.data) : rec.data;
+  }
+
+  async function capture(key) {
+    var raw = await emu.save_state();
+    var data = raw, compressed = false;
+    var z = await gzip(raw).catch(function () { return null; });
+    if (z && z.byteLength) { data = z; compressed = true; }
+    await idbSet(key, {
+      v: IMAGE, m: MEMORY, gz: compressed, ts: Date.now(),
+      raw: raw.byteLength, data: data
+    });
+    return { raw: raw.byteLength, stored: data.byteLength };
+  }
+
+  async function saveNow(quiet) {
+    if (!emu || !booted || saving) return;
+    saving = true;
+    if (!quiet) setStatus("saving...");
+    try {
+      var s = await capture(KEY_STATE);
+      setStatus("saved " + clock() + " (" + mb(s.stored) + " of " + mb(s.raw) + ")");
+      updateStorage();
+    } catch (e) {
+      console.error(e);
+      setStatus("save failed: " + (e && e.message || e), true);
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function buildGolden() {
+    if (goldenBuilding) return;
+    goldenBuilding = true;
+    try {
+      var s = await capture(KEY_GOLDEN);
+      setStatus("ready (" + mb(s.raw) + " machine, " + mb(s.stored) + " saved)");
+      updateStorage();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      goldenBuilding = false;
+    }
+  }
+
+  function updateStorage() {
+    var el = $("storage");
+    if (!navigator.storage || !navigator.storage.estimate) return;
+    navigator.storage.estimate().then(function (est) {
+      if (!est || !est.quota) return;
+      el.textContent = "Your machine is stored in this browser only (" +
+        mb(est.usage || 0) + " of " + mb(est.quota) + " used). Export it if you need a backup.";
+    }).catch(function () {});
+  }
+
+  function requestPersistentStorage() {
+    if (!navigator.storage || !navigator.storage.persist) return;
+    navigator.storage.persisted().then(function (already) {
+      if (!already) navigator.storage.persist();
+    }).catch(function () {});
+  }
+
+  function downloadBlob(blob, name) {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+  }
+
+  function isGzip(buf) {
+    var b = new Uint8Array(buf);
+    return b.length > 2 && b[0] === 0x1f && b[1] === 0x8b;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* boot                                                                */
+  /* ------------------------------------------------------------------ */
+
+  function screenText() {
+    var el = $("screen_container");
+    return el ? (el.innerText || "") : "";
+  }
+
+  // Wait for the shell prompt, then snapshot the machine as the golden state.
+  async function bootThenGolden() {
+    var deadline = Date.now() + 180000;
+    while (Date.now() < deadline) {
+      if (!booted) return;
+      var t = screenText();
+      if (t.indexOf("student@localhost") !== -1) {
+        await sleep(2000);
+        await applyLayoutAndGolden();
+        return;
+      }
+      await sleep(500);
+    }
+    setStatus("boot is slow; you can still type", true);
+  }
+
+  async function applyLayoutAndGolden() {
+    applyGuestLayout();
+    await sleep(600);
+    await saveNow(true);          // the real machine, in case the tab closes
+    await buildGolden();
+  }
+
+  async function bootEmulator() {
+    if (typeof V86 === "undefined") {
+      setStatus("libv86.js is missing next to index.html (see README)", true);
+      return;
+    }
+    if (location.protocol === "file:") {
+      setStatus("open this page through a web server, not by double-clicking it", true);
+      return;
+    }
+
+    var saved = null, golden = null;
+    try {
+      saved = await readState(KEY_STATE);
+      golden = await readState(KEY_GOLDEN);
+    } catch (e) { console.error(e); }
+
+    setStatus(saved ? "restoring your saved machine..." : "starting the machine...");
+
+    emu = new V86({
+      wasm_path: "v86.wasm",
+      memory_size: MEMORY,
+      vga_memory_size: 2 * 1024 * 1024,
+      screen_container: $("screen_container"),
+      bios: { url: "seabios.bin" },
+      vga_bios: { url: "vgabios.bin" },
+      filesystem: { baseurl: "alpine-rootfs-flat/", basefs: "alpine-fs.json" },
+      bzimage_initrd_from_filesystem: true,
+      cmdline: "rw root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose modules=virtio_pci tsc=reliable",
+      disable_speaker: true,
+      autostart: false
+    });
+
+    var start = function (msg) {
+      booted = true;
+      emu.run();
+      setStatus(msg);
+      applyGuestLayout();
+    };
+
+    emu.add_listener("emulator-ready", async function () {
+      try {
+        if (saved) {
+          await emu.restore_state(await inflate(saved));
+          start("restored your machine");
+        } else if (golden) {
+          await emu.restore_state(await inflate(golden));
+          start("clean machine");
+        } else {
+          start("first boot, this takes a little while...");
+          bootThenGolden();
+        }
+      } catch (e) {
+        console.error(e);
+        setStatus("could not restore the saved machine, starting clean", true);
+        idbDel(KEY_STATE).catch(function () {});
+        booted = true;
+        emu.run();
+        bootThenGolden();
+      }
+    });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* user interface                                                      */
+  /* ------------------------------------------------------------------ */
+
+  $("btnAdd").addEventListener("click", function () {
+    var label = $("newLabel").value.trim(), cmd = $("newCmd").value.trim();
+    var gname = $("newGroup").value.trim() || "My commands";
+    if (!label || !cmd) return;
+    var g = groups.filter(function (x) { return x.name === gname; })[0];
+    if (!g) { g = { name: gname, items: [] }; groups.push(g); }
+    g.items.push({ label: label, cmd: cmd });
+    $("newLabel").value = ""; $("newCmd").value = "";
+    saveCommands(); renderCommands();
+  });
+
+  $("btnEdit").addEventListener("click", function () {
+    document.body.classList.toggle("editing");
+    this.textContent = document.body.classList.contains("editing") ? "Done deleting" : "Delete mode";
+  });
+
+  $("btnDefaults").addEventListener("click", function () {
+    if (!confirm("Replace the command list with the defaults?")) return;
+    groups = JSON.parse(JSON.stringify(DEFAULT_COMMANDS));
+    saveCommands(); renderCommands();
+  });
+
+  document.querySelectorAll("[data-key]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (emu && booted) emu.keyboard_send_scancodes(KEYS[b.dataset.key]);
+      b.blur();
+    });
+  });
+
+  $("btnLayout").addEventListener("click", function () { toggleLayout(); this.blur(); });
+  $("btnFontUp").addEventListener("click", function () { stepFont(1); this.blur(); });
+  $("btnFontDown").addEventListener("click", function () { stepFont(-1); this.blur(); });
+
+  $("btnSave").addEventListener("click", function () { saveNow(false); });
+
+  $("btnExport").addEventListener("click", async function () {
+    if (!emu || !booted) return;
+    setStatus("preparing the file...");
+    try {
+      var raw = await emu.save_state();
+      var z = await gzip(raw).catch(function () { return null; });
+      var blob = new Blob([z || raw], { type: "application/octet-stream" });
+      downloadBlob(blob, "linux-classroom-" + new Date().toISOString().slice(0, 10) + ".bin");
+      setStatus("exported " + mb(blob.size));
+    } catch (e) {
+      setStatus("export failed: " + (e && e.message || e), true);
+    }
+  });
+
+  $("btnImport").addEventListener("click", function () { $("fileImport").click(); });
+
+  $("fileImport").addEventListener("change", async function () {
+    var f = this.files[0];
+    this.value = "";
+    if (!f || !emu) return;
+    setStatus("importing " + f.name + "...");
+    try {
+      var buf = await f.arrayBuffer();
+      var raw = isGzip(buf) ? await gunzip(buf) : buf;
+      await emu.restore_state(raw);
+      await idbSet(KEY_STATE, {
+        v: IMAGE, m: MEMORY, gz: isGzip(buf), ts: Date.now(),
+        raw: raw.byteLength, data: buf
+      });
+      booted = true;
+      emu.run();
+      applyGuestLayout();
+      setStatus("imported " + clock());
+      updateStorage();
+    } catch (e) {
+      console.error(e);
+      setStatus("import failed: " + (e && e.message || e), true);
+    }
+  });
+
+  $("btnReset").addEventListener("click", async function () {
+    if (!confirm("Throw away your changes and return to a clean machine?")) return;
+    await idbDel(KEY_STATE).catch(function () {});
+    var golden = await readState(KEY_GOLDEN).catch(function () { return null; });
+    if (!emu || !golden) { location.reload(); return; }
+    try {
+      await emu.restore_state(await inflate(golden));
+      booted = true;
+      emu.run();
+      applyGuestLayout();
+      setStatus("clean machine restored");
+      updateStorage();
+    } catch (e) {
+      console.error(e);
+      location.reload();
+    }
+  });
+
+  $("btnFull").addEventListener("click", function () {
+    var el = $("screen_container");
+    if (el.requestFullscreen) el.requestFullscreen();
+  });
+
+  $("btnPaste").addEventListener("click", function () {
+    var t = $("pasteText").value;
+    if (t) sendText(t);
+    this.blur();
+  });
+  $("btnPasteEnter").addEventListener("click", function () {
+    var t = $("pasteText").value;
+    sendText(t.replace(/\n+$/m, ""));
+    if (emu && booted) emu.keyboard_send_scancodes(ENTER);
+    this.blur();
+  });
+
+  // Keep sidebar typing away from the virtual machine.
+  function keyboardToGuest(on) {
+    if (emu && emu.keyboard_set_status) emu.keyboard_set_status(on);
+  }
+  $("side").addEventListener("focusin", function (e) {
+    if (e.target.matches("input, textarea")) keyboardToGuest(false);
+  });
+  $("side").addEventListener("focusout", function (e) {
+    if (e.target.matches("input, textarea")) keyboardToGuest(true);
+  });
+  $("term").addEventListener("mousedown", function () { keyboardToGuest(true); });
+
+  document.addEventListener("keydown", function (e) {
+    if (!e.ctrlKey || !e.altKey) return;
+    var handled = false;
+    if (e.code === "KeyK") { toggleLayout(); handled = true; }
+    else if (e.code === "Minus" || e.code === "NumpadSubtract") { stepFont(-1); handled = true; }
+    else if (e.code === "Equal" || e.code === "NumpadAdd") { stepFont(1); handled = true; }
+    if (handled) {
+      // Stop here so the guest does not also see the shortcut.
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
+
+  setInterval(function () { saveNow(true); }, 60000);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") saveNow(true);
+  });
+
+  /* ------------------------------------------------------------------ */
+  /* start                                                               */
+  /* ------------------------------------------------------------------ */
+
+  async function fetchImageVersion() {
+    try {
+      var res = await fetch("image-version.json", { cache: "no-store" });
+      var json = await res.json();
+      if (json && json.version) IMAGE = String(json.version);
+    } catch (e) { /* not built with build.sh, or opened without a server */ }
+  }
+
+  async function main() {
+    try { LAYOUT = localStorage.getItem(LAYOUT_KEY) === "fr" ? "fr" : "us"; } catch (e) {}
+    try { fontSize = parseInt(localStorage.getItem(FONT_KEY), 10) || 20; } catch (e) {}
+    setFontSize(fontSize, false);
+    $("btnLayout").textContent = "Keyboard: " + LAYOUT.toUpperCase();
+
+    groups = loadCommands();
+    renderCommands();
+
+    await fetchImageVersion();
+    requestPersistentStorage();
+    updateStorage();
+    bootEmulator();
+  }
+
+  main();
+})();
+</script>
+</body>
+</html>
