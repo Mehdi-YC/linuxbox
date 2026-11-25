@@ -3,6 +3,8 @@
 A Linux terminal in the browser for students. Nothing to install on their side.
 
 - Alpine Linux (BusyBox userland, glibc-free) running in the v86 emulator (BSD licensed)
+- Internet access through v86's public WebSocket relay; the guest gets a DHCP
+  lease at boot
 - bash as the shell for every account, plus nano and vim with syntax
   highlighting, less, man with POSIX pages and apropos, bc, tree, htop,
   doas (a tiny sudo) and gcc
@@ -54,8 +56,9 @@ writes the guest files plus `image-version.json` into the repository root.
 
 ## The guest machine
 
-Everything is installed at build time, in `build/Dockerfile`. The virtual
-machine has no network, so `apk add` never works for students.
+Everything needed offline is installed at build time, in `build/Dockerfile`.
+At runtime the guest also has internet through the relay, so `apk add` and
+`wget` work; the image is still complete without it.
 
 - `student` / `student` is the account on the console, autologin, `wheel` group
 - `root` has no password; the serial console autologins as root (used by tooling)
@@ -105,7 +108,12 @@ terminal text size.
   HTML, JSON, Makefiles...), but not the 30 MB `:help` documentation tree.
 - There is no copy-paste with the system clipboard in the terminal. Use the
   Paste box in the sidebar to send text into the machine.
-- The guest has no network, by design.
+- The guest has internet through v86's public relay
+  (`wss://relay.widgetry.org/`). That is a third-party service: it carries the
+  raw Ethernet frames (HTTPS inside the guest still protects page contents),
+  it is unfiltered and best-effort, and it can disappear. For a classroom, run
+  your own relay and allowlist hosts, or remove `network_relay_url` from
+  `index.html` to go back to an offline machine.
 - On a phone or tablet, tap the terminal to open the keyboard. The key bar above
   it has the keys phone keyboards lack; Ctrl and Alt stay pressed for the next
   key when tapped. The command list lives behind the Menu button.

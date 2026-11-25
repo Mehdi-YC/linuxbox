@@ -522,6 +522,16 @@
     emu.serial0_send("busybox zcat " + file + " | busybox loadkmap\n");
   }
 
+  // The relay is a new connection after every page load, but a restored
+  // machine keeps its old ne2k state and lease, so its DHCP silently stops.
+  // Reloading the driver and asking again fixes it. Sent over the serial
+  // console (root) so the student's screen is not disturbed.
+  function refreshNetwork() {
+    if (!emu) return;
+    emu.serial0_send("modprobe -r ne2k-pci; modprobe ne2k-pci; " +
+      "ip link set eth0 up; udhcpc -i eth0 -q -n -t 8 >/dev/null 2>&1\n");
+  }
+
   function setLayout(next, quiet) {
     LAYOUT = next === "fr" ? "fr" : "us";
     try { localStorage.setItem(LAYOUT_KEY, LAYOUT); } catch (e) {}
@@ -856,6 +866,8 @@
       vga_bios: { url: "vgabios.bin" },
       filesystem: { baseurl: "alpine-rootfs-flat/", basefs: "alpine-fs.json" },
       bzimage_initrd_from_filesystem: true,
+      net_device: { type: "ne2k" },
+      network_relay_url: "wss://relay.widgetry.org/",
       cmdline: "rw root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose modules=virtio_pci tsc=reliable",
       disable_speaker: true,
       autostart: false
@@ -884,6 +896,7 @@
           await emu.restore_state(raw);
           raw = null;
           start(wasClean ? "clean machine" : "restored your machine");
+          setTimeout(refreshNetwork, 1500);
         } else {
           start("first boot, this takes a little while...");
           bootThenGolden();
@@ -1093,6 +1106,7 @@
       booted = true;
       emu.run();
       applyGuestLayout();
+      setTimeout(refreshNetwork, 1500);
       buf = null; raw = null;
       setStatus("imported " + clock());
       updateStorage();
@@ -1115,6 +1129,7 @@
       booted = true;
       emu.run();
       applyGuestLayout();
+      setTimeout(refreshNetwork, 1500);
       setStatus("clean machine restored");
       updateStorage();
     } catch (e) {

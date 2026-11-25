@@ -1,7 +1,8 @@
 # Linux Classroom guest image.
 #
-# Everything a student needs is installed here, at build time. The virtual
-# machine has no network, so `apk add` can never run inside it.
+# Everything a student needs must be installed here, at build time. The guest
+# also has internet at runtime through the page's relay, but the image has to
+# be useful without it.
 #
 # Build with build/build.sh (needs Docker). Based on
 # v86/tools/docker/alpine/Dockerfile.
@@ -123,6 +124,14 @@ RUN echo -e 'rmmod ne2k-pci && modprobe ne2k-pci\nrmmod virtio-net && modprobe v
 RUN for i in devfs dmesg mdev hwdrivers; do rc-update add $i sysinit; done
 RUN for i in hwclock modules sysctl hostname syslog bootmisc; do rc-update add $i boot; done
 RUN rc-update add killprocs shutdown
+
+# ---------------------------------------------------------------------------
+# network: the page gives v86 a ne2k NIC through a WebSocket relay; the guest
+# just needs the driver and DHCP at boot.
+# ---------------------------------------------------------------------------
+RUN echo ne2k-pci >> /etc/modules
+RUN printf 'auto lo\niface lo inet loopback\n\nauto eth0\niface eth0 inet dhcp\n' > /etc/network/interfaces
+RUN rc-update add networking boot
 
 # initramfs with 9p modules (the root filesystem is a 9p share)
 RUN mkinitfs -F "base virtio 9p" $(cat /usr/share/kernel/$KERNEL/kernel.release)
