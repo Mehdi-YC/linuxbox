@@ -210,7 +210,7 @@
     </div>
 
     <h2>Commands</h2>
-    <p class="hint" style="margin:-4px 0 8px">Click a command to run it. Shift+click types it without pressing Enter, so you can edit it first.</p>
+    <p class="hint" style="margin:-4px 0 8px">Click a command to put it on the prompt, then press Enter. Shift+click runs it straight away.</p>
     <div id="groups"></div>
 
     <h2>Add your own</h2>
@@ -674,7 +674,9 @@
         var small = document.createElement("small"); small.textContent = it.cmd;
         b.appendChild(small);
         b.addEventListener("click", function (e) {
-          run(it.cmd, !e.shiftKey);
+          // Click puts the command on the prompt so it can be read or edited;
+          // Shift+click runs it as before.
+          run(it.cmd, e.shiftKey);
           b.blur();
           // On a phone the sheet covers the terminal: step out of the way.
           if (window.matchMedia("(max-width:900px)").matches) showSide(false);

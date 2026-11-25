@@ -9,7 +9,8 @@ A Linux terminal in the browser for students. Nothing to install on their side.
 - US and French (AZERTY) keyboard layouts, switchable at runtime
 - Phone and tablet friendly: tap the screen to type, and a Termux-style key bar
   adds Esc, Tab, arrows, Home/End, PgUp/PgDn, Ctrl and Alt
-- Sidebar with one-click commands that you can edit and add to
+- Sidebar with one-click commands that you can edit and add to; a click puts the
+  command on the prompt, Shift+click runs it
 - The whole machine (users, files, packages, running state) is saved in the
   student's browser and resumes on the next visit
 - Export / Import buttons to back the machine up as a file
