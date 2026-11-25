@@ -3,8 +3,12 @@
 A Linux terminal in the browser for students. Nothing to install on their side.
 
 - Alpine Linux (BusyBox userland, glibc-free) running in the v86 emulator (BSD licensed)
-- bash as the shell for every account, plus nano, less, man, doas (a tiny sudo) and gcc
+- bash as the shell for every account, plus nano and vim with syntax
+  highlighting, less, man with POSIX pages and apropos, bc, tree, htop,
+  doas (a tiny sudo) and gcc
 - US and French (AZERTY) keyboard layouts, switchable at runtime
+- Phone and tablet friendly: tap the screen to type, and a Termux-style key bar
+  adds Esc, Tab, arrows, Home/End, PgUp/PgDn, Ctrl and Alt
 - Sidebar with one-click commands that you can edit and add to
 - The whole machine (users, files, packages, running state) is saved in the
   student's browser and resumes on the next visit
@@ -17,8 +21,8 @@ python3 -m http.server 8000
 ```
 
 Open http://localhost:8000. The first boot takes a while. After that the machine
-is saved automatically (every minute and when the tab is hidden), and the next
-visit resumes where the student left off.
+is saved automatically (once a minute when it has changed, and whenever the tab
+is hidden), and the next visit resumes where the student left off.
 
 The page has to be served over HTTP; opening `index.html` by double-clicking it
 does not work.
@@ -70,6 +74,11 @@ mismatched image.
 
 - The machine is a memory dump, compressed with gzip before it goes into
   IndexedDB. `MEMORY` at the top of the script in `index.html` sets its size.
+- Compressing a dump is the heaviest thing the page does: it briefly holds the
+  machine dump twice (up to 192 MB each time). The compressor is fed in 1 MB
+  slices so it never makes a third copy, saves are skipped while a dump is
+  already running, idle tabs skip the periodic dump, and the first boot writes
+  the machine and the reset snapshot from a single dump.
 - The first successful boot stores a "golden" clean machine. Reset restores that
   snapshot in about a second instead of booting again.
 - Saved machines live in the browser. Clearing site data, or using another
@@ -87,11 +96,17 @@ terminal text size.
 
 - The first boot takes about 45 seconds; later visits resume instantly from the
   saved machine.
-- `man` covers the C library and file formats (`man 3 printf`, `man 5 passwd`).
-  BusyBox commands do not ship man pages; use `<command> --help` for those.
+- `man` has the POSIX pages for the standard commands (`man ls`, `man cp`,
+  `man 5 passwd`) and the Linux C library pages (`man 3 printf`). `apropos` and
+  `whatis` work. BusyBox applets outside POSIX (`apk`, `doas`, `adduser`) have no
+  man page; use `<command> --help` for those.
+- `vim` keeps a working editor and a set of syntax files (C, shell, Python,
+  HTML, JSON, Makefiles...), but not the 30 MB `:help` documentation tree.
 - There is no copy-paste with the system clipboard in the terminal. Use the
   Paste box in the sidebar to send text into the machine.
 - The guest has no network, by design.
-- Students on a phone or tablet cannot type; a physical keyboard is required.
+- On a phone or tablet, tap the terminal to open the keyboard. The key bar above
+  it has the keys phone keyboards lack; Ctrl and Alt stay pressed for the next
+  key when tapped. The command list lives behind the Menu button.
 - Alpine Linux, busybox and the packages inside the guest keep their own
   licenses; v86 is BSD licensed (see https://github.com/copy/v86).

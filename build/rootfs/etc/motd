@@ -1,5 +1,8 @@
 
-  Linux Classroom -- Alpine Linux with bash, nano, man and gcc.
+  Linux Classroom -- Alpine Linux with bash, nano, vim, man and gcc.
 
-  Useful: ls, cd, cat, nano, man <command>, gcc hello.c -o hello, doas <cmd>
+  Useful: ls, cd, cat, nano <file>, vim <file>, man <command>, apropos <word>
+          gcc hello.c -o hello, doas <cmd>
 
+  On a phone: tap the screen to type, the key bar above the keyboard has
+  Esc, Tab, arrows, Home/End, PgUp/PgDn, Ctrl and Alt.

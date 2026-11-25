@@ -1,0 +1,19 @@
+" Classroom defaults. /etc/vim/vimrc sources this file last.
+" Alpine's vimrc turns syntax on but not filetype detection, so highlighting
+" would never start from a file extension without the line below.
+filetype on
+syntax on
+
+set number          " line numbers help when reading compiler errors
+set ruler
+set showcmd
+set incsearch
+set hlsearch
+set ignorecase
+set smartcase
+set backspace=indent,eol,start
+set tabstop=4
+set shiftwidth=4
+set expandtab       " spaces, not tabs: what students are usually told to use
+set laststatus=2
+set mouse=          " no mouse in the guest console

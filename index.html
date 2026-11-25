@@ -16,11 +16,15 @@
   html, body {
     margin:0; height:100%; background:var(--bg); color:var(--text);
     font:var(--ui-font)/1.45 system-ui, sans-serif;
+    -webkit-text-size-adjust:100%;
   }
-  #app { display:grid; grid-template-columns:1fr 380px; grid-template-rows:auto 1fr; height:100%; }
+  #app {
+    display:grid; grid-template-columns:1fr 380px; grid-template-rows:auto 1fr auto;
+    height:100vh; height:100dvh;
+  }
 
   header {
-    grid-column:1 / 3; display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+    grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:10px; align-items:center;
     padding:10px 16px; background:var(--panel); border-bottom:1px solid var(--line);
   }
   header h1 { font-size:20px; margin:0 10px 0 0; letter-spacing:.02em; }
@@ -30,17 +34,24 @@
   button {
     background:#222733; color:var(--text); border:1px solid var(--line); border-radius:8px;
     padding:8px 14px; cursor:pointer; font:inherit; font-size:15px;
+    touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+    transition:background .15s, border-color .15s, transform .06s;
   }
-  button:hover { border-color:var(--accent); }
+  button:hover { border-color:var(--accent); background:#262c38; }
+  button:active { transform:translateY(1px); }
   button:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
   button.danger:hover { border-color:var(--danger); color:var(--danger); }
   button.key { font-family:"DejaVu Sans Mono", monospace; font-size:15px; padding:8px 12px; }
   .zoombox { display:flex; gap:4px; align-items:center; }
   .zoombox button { padding:6px 10px; font-size:15px; }
+  #btnSide, #btnSideClose { display:none; }
 
-  #term { overflow:auto; padding:18px; text-align:center; }
+  #term {
+    overflow:auto; padding:18px; text-align:center; -webkit-overflow-scrolling:touch;
+    background:radial-gradient(120% 80% at 50% 0%, #141821 0%, var(--bg) 60%);
+  }
   #screen_container {
-    display:inline-block; text-align:left; border:1px solid var(--line);
+    position:relative; display:inline-block; text-align:left; border:1px solid var(--line);
     background:#000; box-shadow:0 0 0 6px #000;
   }
   #screen_container > div {
@@ -48,18 +59,50 @@
     font:var(--term-font)/1.18 "DejaVu Sans Mono", "Liberation Mono", Menlo, Consolas, monospace;
     color:#ccc;
   }
+  /* v86 replays mobile soft-keyboard input through this element: focus it on a
+     touch and the guest gets the characters, including IME composed ones. It
+     must stay 1px and 16px so iOS does not zoom in when it takes focus. */
+  .phone_keyboard {
+    position:absolute; left:0; bottom:0; width:1px; height:1px; padding:0; margin:0;
+    border:0; opacity:0; font-size:16px; resize:none; overflow:hidden;
+  }
   .hint { color:var(--muted); font-size:14px; margin:10px 0 0; }
+
+  /* Termux-style key bar: no soft keyboard has Esc, arrows, Ctrl or Tab. */
+  #extraKeys {
+    grid-column:1 / -1; display:none; grid-template-columns:repeat(7, 1fr);
+    gap:4px; padding:6px; background:var(--panel); border-top:1px solid var(--line);
+    padding-bottom:calc(6px + env(safe-area-inset-bottom));
+  }
+  #extraKeys button {
+    padding:11px 2px; font:600 13px/1 "DejaVu Sans Mono", monospace;
+    border-radius:7px; min-width:0; overflow:hidden; white-space:nowrap;
+    letter-spacing:.03em;
+  }
+  #extraKeys button.active {
+    background:var(--accent); border-color:var(--accent); color:#0f1115;
+  }
+  #extraKeys button.active:hover { background:var(--accent); }
 
   aside { border-left:1px solid var(--line); background:var(--panel); overflow:auto; padding:14px; }
   aside h2 { font-size:12px; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); margin:18px 0 8px; }
   aside h2:first-child { margin-top:0; }
+  #btnSideClose { float:right; padding:2px 10px; font-size:20px; line-height:1; }
 
-  details { margin-bottom:10px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; }
+  #backdrop {
+    display:none; position:fixed; inset:0; z-index:25;
+    background:#0009; -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px);
+  }
+
+  details { margin-bottom:10px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#1b1f28; transition:border-color .15s; }
+  details:hover { border-color:#343b49; }
   summary { cursor:pointer; font-weight:600; padding:2px 0; }
+  summary::marker { color:var(--muted); }
   .cmd { display:flex; gap:6px; margin-top:8px; }
   .cmd button.run {
     flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
+  .cmd button.run:hover { background:#252b37; }
   .cmd button.run small { color:var(--muted); margin-left:8px; font-family:"DejaVu Sans Mono", monospace; }
   .cmd button.del { display:none; color:var(--danger); padding:8px 11px; }
   body.editing .cmd button.del { display:inline-block; }
@@ -74,9 +117,43 @@
 
   @media (max-width:900px) {
     #app { grid-template-columns:1fr; grid-template-rows:auto 1fr auto; }
-    header { grid-column:1; }
-    aside { border-left:0; border-top:1px solid var(--line); max-height:45vh; }
-    #term { padding:8px; }
+    header {
+      grid-column:1; flex-wrap:nowrap; overflow-x:auto; padding:8px 10px; gap:6px;
+      scrollbar-width:none;
+    }
+    header::-webkit-scrollbar { display:none; }
+    header h1 { display:none; }
+    header button { flex:0 0 auto; padding:7px 10px; font-size:14px; }
+    #status {
+      flex:0 0 auto; max-width:38vw; margin-right:auto;
+      font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    #btnSide { display:inline-block; }
+    #btnSideClose { display:inline-block; }
+    #extraKeys { display:grid; }
+    #term { padding:6px; text-align:left; }
+    .hint { display:none; }
+
+    /* the command list becomes a bottom sheet instead of eating the screen */
+    aside { display:none; }
+    body.show-side aside {
+      display:block; position:fixed; left:0; right:0; bottom:0; z-index:30;
+      max-height:75dvh; border-left:0; border-top:1px solid var(--line);
+      border-radius:16px 16px 0 0; box-shadow:0 -12px 40px #000c;
+      padding-bottom:calc(18px + env(safe-area-inset-bottom));
+      animation:sheet .18s ease-out;
+    }
+    body.show-side #backdrop { display:block; }
+  }
+  @keyframes sheet {
+    from { transform:translateY(14px); opacity:.6; }
+    to { transform:none; opacity:1; }
+  }
+  @media (prefers-reduced-motion:reduce) {
+    *, *::before, *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
+  }
+  @media (hover:none) and (pointer:coarse) and (min-width:901px) {
+    #extraKeys { display:grid; }
   }
 </style>
 </head>
@@ -84,6 +161,7 @@
 <div id="app">
   <header>
     <h1>Linux Classroom</h1>
+    <button id="btnSide" title="Show or hide the command list" aria-expanded="false" aria-controls="side">Menu</button>
     <span id="status">starting...</span>
     <button id="btnLayout" title="Switch keyboard layout (Ctrl+Alt+K)">Keyboard: US</button>
     <div class="zoombox" title="Terminal text size (Ctrl+Alt+- and Ctrl+Alt+=)">
@@ -99,11 +177,16 @@
   </header>
 
   <main id="term">
-    <div id="screen_container"><div></div><canvas></canvas></div>
+    <div id="screen_container">
+      <div></div><canvas></canvas>
+      <textarea class="phone_keyboard" aria-label="Terminal input"
+        autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false"></textarea>
+    </div>
     <p class="hint">Click the screen and type. Shortcuts: Ctrl+Alt+K switches US/FR, Ctrl+Alt+- and Ctrl+Alt+= change text size. The machine is saved automatically every minute.</p>
   </main>
 
   <aside id="side">
+    <button id="btnSideClose" aria-label="Close the command list">&times;</button>
     <h2>Keys</h2>
     <div class="row">
       <button class="key" data-key="ctrlc">Ctrl+C</button>
@@ -136,6 +219,26 @@
 
     <p id="storage">Your machine is stored in this browser only. Export it if you need a backup.</p>
   </aside>
+
+  <div id="backdrop" aria-hidden="true"></div>
+
+  <!-- Termux-style extra keys: reachable with a thumb, keeps the soft keyboard open. -->
+  <div id="extraKeys" role="toolbar" aria-label="Extra keys">
+    <button data-xkey="escape">ESC</button>
+    <button data-xkey="slash">/</button>
+    <button data-xkey="minus">&minus;</button>
+    <button data-xkey="home">HOME</button>
+    <button data-xkey="up" aria-label="Arrow up">&uarr;</button>
+    <button data-xkey="end">END</button>
+    <button data-xkey="pageup">PGUP</button>
+    <button data-xkey="tab">TAB</button>
+    <button data-xmod="ctrl">CTRL</button>
+    <button data-xmod="alt">ALT</button>
+    <button data-xkey="left" aria-label="Arrow left">&larr;</button>
+    <button data-xkey="down" aria-label="Arrow down">&darr;</button>
+    <button data-xkey="right" aria-label="Arrow right">&rarr;</button>
+    <button data-xkey="pagedown">PGDN</button>
+  </div>
 </div>
 
 <script src="libv86.js"></script>
@@ -159,7 +262,7 @@
   // snapshots instead of trying to restore a machine from a different image.
   var IMAGE = "dev";
 
-  var FONT_SIZES = [16, 18, 20, 22, 24, 26, 28, 30, 34];
+  var FONT_SIZES = [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 34];
 
   var DEFAULT_COMMANDS = [
     { name: "Files", items: [
@@ -172,7 +275,9 @@
       { label: "Search in files",   cmd: "grep -r hello ." },
       { label: "Find files",        cmd: "find . -name \"*.txt\"" },
       { label: "Edit with nano",    cmd: "nano file.txt" },
-      { label: "Help on a command",  cmd: "ls --help" }
+      { label: "Edit with vim",     cmd: "vim file.txt" },
+      { label: "Help on a command",  cmd: "man ls" },
+      { label: "Search the manual",  cmd: "apropos copy" }
     ]},
     { name: "Users and groups", items: [
       { label: "Who am I?",         cmd: "whoami" },
@@ -201,7 +306,8 @@
       { label: "Which shell am I in?", cmd: "echo $SHELL; echo $0" },
       { label: "Compile a program",  cmd: "printf '#include <stdio.h>\\nint main(void){puts(\"hello from C\");return 0;}\\n' > hello.c && gcc hello.c -o hello && ./hello" },
       { label: "Show compiler version", cmd: "gcc --version" },
-      { label: "Manual: printf",     cmd: "man 3 printf" }
+      { label: "Manual: printf",     cmd: "man 3 printf" },
+      { label: "Calculator",         cmd: "bc" }
     ]},
     { name: "System", items: [
       { label: "System info",       cmd: "uname -a" },
@@ -258,9 +364,23 @@
   /* compression: snapshots are mostly idle RAM, they gzip very well     */
   /* ------------------------------------------------------------------ */
 
+  // Feed the dump through CompressionStream in 1 MB slices. A Blob would copy
+  // the whole machine before compressing it, which is what pushed a tab past
+  // 900 MB on its own; subarrays are views, so this copies nothing.
   function gzip(buf) {
-    if (typeof CompressionStream === "undefined") return Promise.resolve(null);
-    return new Response(new Blob([buf]).stream().pipeThrough(new CompressionStream("gzip")))
+    if (typeof CompressionStream === "undefined" || typeof ReadableStream === "undefined") {
+      return Promise.resolve(null);
+    }
+    var bytes = new Uint8Array(buf), CHUNK = 1024 * 1024;
+    var source = new ReadableStream({
+      start: function (controller) {
+        for (var off = 0; off < bytes.length; off += CHUNK) {
+          controller.enqueue(bytes.subarray(off, Math.min(off + CHUNK, bytes.length)));
+        }
+        controller.close();
+      }
+    });
+    return new Response(source.pipeThrough(new CompressionStream("gzip")))
       .arrayBuffer().catch(function () { return null; });
   }
   function gunzip(buf) {
@@ -274,7 +394,9 @@
   /* ------------------------------------------------------------------ */
 
   var $ = function (id) { return document.getElementById(id); };
-  var emu = null, saving = false, booted = false, goldenBuilding = false;
+  var emu = null, saving = false, booted = false, dirty = false;
+
+  function markDirty() { dirty = true; }
 
   function setStatus(msg, bad) {
     var s = $("status");
@@ -374,7 +496,7 @@
   function sendText(str) {
     if (!emu) return;
     var codes = textCodes(str);
-    if (codes.length) emu.keyboard_send_scancodes(codes);
+    if (codes.length) sendKeyBytes(codes);
   }
 
   // The guest keymap is global to the kernel, so it can be changed from the
@@ -382,6 +504,7 @@
   // student's shell.
   function applyGuestLayout() {
     if (!emu) return;
+    markDirty();
     var file = KEYMAP_FILE[LAYOUT] || KEYMAP_FILE.us;
     emu.serial0_send("busybox zcat " + file + " | busybox loadkmap\n");
   }
@@ -429,6 +552,58 @@
     ctrld: [0x1D, 0x20, 0xA0, 0x9D]
   };
 
+  // Keys a phone keyboard does not have. Extended keys are 0xE0 + code on the
+  // way down and 0xE0 + (code | 0x80) on the way up.
+  var EXTRA_KEYS = {
+    escape:   [0x01, 0x81],
+    tab:      [0x0F, 0x8F],
+    home:     [0xE0, 0x47, 0xE0, 0xC7],
+    end:      [0xE0, 0x4F, 0xE0, 0xCF],
+    pageup:   [0xE0, 0x49, 0xE0, 0xC9],
+    pagedown: [0xE0, 0x51, 0xE0, 0xD1],
+    up:       [0xE0, 0x48, 0xE0, 0xC8],
+    down:     [0xE0, 0x50, 0xE0, 0xD0],
+    left:     [0xE0, 0x4B, 0xE0, 0xCB],
+    right:    [0xE0, 0x4D, 0xE0, 0xCD]
+  };
+  var MODS = { ctrl: 0x1D, alt: 0x38 };
+
+  // CTRL / ALT are sticky: their make code stays down in the guest so the next
+  // key typed on the soft keyboard becomes Ctrl+X / Alt+X, then it is released.
+  var heldMods = [], modTimer = 0;
+
+  function modButtons() {
+    return document.querySelectorAll("#extraKeys [data-xmod]");
+  }
+  function releaseMods(send) {
+    if (modTimer) { clearTimeout(modTimer); modTimer = 0; }
+    if (send && emu && booted && heldMods.length) {
+      emu.keyboard_send_scancodes(heldMods.map(function (c) { return c | 0x80; }));
+    }
+    heldMods = [];
+    modButtons().forEach(function (b) { b.classList.remove("active"); });
+  }
+  function toggleMod(name, btn) {
+    var code = MODS[name];
+    if (heldMods.indexOf(code) !== -1) { releaseMods(true); return; }
+    heldMods.push(code);
+    btn.classList.add("active");
+    if (emu && booted) emu.keyboard_send_scancodes([code]);
+    if (modTimer) clearTimeout(modTimer);
+    modTimer = setTimeout(function () { modTimer = 0; releaseMods(true); }, 15000);
+  }
+
+  function sendKeyBytes(codes) {
+    if (!emu || !booted || !codes || !codes.length) return;
+    markDirty();
+    var seq = codes.slice();
+    if (heldMods.length) {
+      seq = seq.concat(heldMods.slice().reverse().map(function (c) { return c | 0x80; }));
+      releaseMods(false);       // clears the buttons and the safety timer
+    }
+    emu.keyboard_send_scancodes(seq);
+  }
+
   function run(cmd, pressEnter) {
     if (!emu || !booted) { setStatus("the machine is not ready yet", true); return; }
     sendText(cmd);
@@ -471,7 +646,12 @@
         b.appendChild(document.createTextNode(it.label));
         var small = document.createElement("small"); small.textContent = it.cmd;
         b.appendChild(small);
-        b.addEventListener("click", function (e) { run(it.cmd, !e.shiftKey); b.blur(); });
+        b.addEventListener("click", function (e) {
+          run(it.cmd, !e.shiftKey);
+          b.blur();
+          // On a phone the sheet covers the terminal: step out of the way.
+          if (window.matchMedia("(max-width:900px)").matches) showSide(false);
+        });
 
         var x = document.createElement("button"); x.className = "del";
         x.textContent = "\u00d7"; x.title = "Delete";
@@ -512,45 +692,42 @@
     return rec.gz ? gunzip(rec.data) : rec.data;
   }
 
-  async function capture(key) {
+  async function capture(keys) {
     var raw = await emu.save_state();
-    var data = raw, compressed = false;
-    var z = await gzip(raw).catch(function () { return null; });
-    if (z && z.byteLength) { data = z; compressed = true; }
-    await idbSet(key, {
+    var rawLen = raw.byteLength;
+    var z = await gzip(raw);
+    var stored = rawLen, data = raw, compressed = false;
+    if (z && z.byteLength) {
+      data = z; compressed = true; stored = z.byteLength;
+      z = null;
+      raw = null;              // the dump is not needed any more
+    }
+    var rec = {
       v: IMAGE, m: MEMORY, gz: compressed, ts: Date.now(),
-      raw: raw.byteLength, data: data
-    });
-    return { raw: raw.byteLength, stored: data.byteLength };
+      raw: rawLen, data: data
+    };
+    for (var i = 0; i < keys.length; i++) await idbSet(keys[i], rec);
+    rec.data = null;           // IndexedDB has its own copy now
+    return { raw: rawLen, stored: stored };
   }
 
-  async function saveNow(quiet) {
+  async function saveNow(quiet, alsoGolden) {
     if (!emu || !booted || saving) return;
     saving = true;
+    var wasDirty = dirty;
+    dirty = false;
     if (!quiet) setStatus("saving...");
     try {
-      var s = await capture(KEY_STATE);
+      var keys = alsoGolden ? [KEY_STATE, KEY_GOLDEN] : [KEY_STATE];
+      var s = await capture(keys);
       setStatus("saved " + clock() + " (" + mb(s.stored) + " of " + mb(s.raw) + ")");
       updateStorage();
     } catch (e) {
+      dirty = wasDirty || dirty;
       console.error(e);
       setStatus("save failed: " + (e && e.message || e), true);
     } finally {
       saving = false;
-    }
-  }
-
-  async function buildGolden() {
-    if (goldenBuilding) return;
-    goldenBuilding = true;
-    try {
-      var s = await capture(KEY_GOLDEN);
-      setStatus("ready (" + mb(s.raw) + " machine, " + mb(s.stored) + " saved)");
-      updateStorage();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      goldenBuilding = false;
     }
   }
 
@@ -612,8 +789,10 @@
   async function applyLayoutAndGolden() {
     applyGuestLayout();
     await sleep(600);
-    await saveNow(true);          // the real machine, in case the tab closes
-    await buildGolden();
+    // First boot: one dump, written twice. The machine right now *is* the
+    // clean state, so capturing it again for Reset would just double the
+    // dump-sized peak for nothing.
+    await saveNow(true, true);
   }
 
   async function bootEmulator() {
@@ -629,7 +808,9 @@
     var saved = null, golden = null;
     try {
       saved = await readState(KEY_STATE);
-      golden = await readState(KEY_GOLDEN);
+      // A snapshot of the clean machine is only worth loading when there is
+      // nothing to restore; otherwise it just sits in RAM all session.
+      if (!saved) golden = await readState(KEY_GOLDEN);
     } catch (e) { console.error(e); }
 
     setStatus(saved ? "restoring your saved machine..." : "starting the machine...");
@@ -655,14 +836,22 @@
       applyGuestLayout();
     };
 
-    emu.add_listener("emulator-ready", async function () {
+    // Any character painted by the guest counts as activity; an idle tab then
+    // skips the dump instead of taking one every minute.
+    emu.add_listener("screen-put-char", markDirty);
+
+    var onReady = async function () {
+      emu.remove_listener("emulator-ready", onReady);
+      var rec = saved || golden;
+      var wasClean = !saved && !!golden;
+      saved = null; golden = null;   // no reason to keep the compressed dump
       try {
-        if (saved) {
-          await emu.restore_state(await inflate(saved));
-          start("restored your machine");
-        } else if (golden) {
-          await emu.restore_state(await inflate(golden));
-          start("clean machine");
+        if (rec) {
+          var raw = await inflate(rec);
+          rec.data = null;
+          await emu.restore_state(raw);
+          raw = null;
+          start(wasClean ? "clean machine" : "restored your machine");
         } else {
           start("first boot, this takes a little while...");
           bootThenGolden();
@@ -675,7 +864,8 @@
         emu.run();
         bootThenGolden();
       }
-    });
+    };
+    emu.add_listener("emulator-ready", onReady);
   }
 
   /* ------------------------------------------------------------------ */
@@ -706,9 +896,115 @@
 
   document.querySelectorAll("[data-key]").forEach(function (b) {
     b.addEventListener("click", function () {
+      releaseMods(true);
       if (emu && booted) emu.keyboard_send_scancodes(KEYS[b.dataset.key]);
       b.blur();
     });
+  });
+
+  // ------------------------------------------------------------------
+  // extra keys (phone / tablet)
+  //
+  // pointerdown + preventDefault keeps focus on the hidden terminal textarea,
+  // so the soft keyboard does not close every time a key is tapped.
+  // ------------------------------------------------------------------
+  document.querySelectorAll("#extraKeys [data-xkey]").forEach(function (b) {
+    b.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      var k = b.dataset.xkey;
+      if (k === "slash") sendKeyBytes(textCodes("/"));
+      else if (k === "minus") sendKeyBytes(textCodes("-"));
+      else sendKeyBytes(EXTRA_KEYS[k] || []);
+    });
+  });
+  document.querySelectorAll("#extraKeys [data-xmod]").forEach(function (b) {
+    b.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      toggleMod(b.dataset.xmod, b);
+    });
+  });
+  // A sticky Ctrl/Alt applies to the next key of the soft keyboard too: release
+  // it just after that keydown has been turned into a scancode. Capture phase,
+  // so stopping propagation for layout-correct typing does not skip this.
+  window.addEventListener("keydown", function () {
+    if (heldMods.length) setTimeout(function () { releaseMods(true); }, 150);
+  }, true);
+  window.addEventListener("blur", function () { releaseMods(true); });
+
+  function showSide(on) {
+    document.body.classList.toggle("show-side", on);
+    $("btnSide").setAttribute("aria-expanded", on ? "true" : "false");
+  }
+  $("btnSide").addEventListener("click", function () {
+    showSide(!document.body.classList.contains("show-side"));
+    this.blur();
+  });
+  $("btnSideClose").addEventListener("click", function () { showSide(false); });
+  $("backdrop").addEventListener("click", function () { showSide(false); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && document.body.classList.contains("show-side")) {
+      e.stopPropagation();
+      showSide(false);
+    }
+  });
+
+  // v86 replays mobile keyboard input from the element with class
+  // "phone_keyboard"; it must be focused for the soft keyboard to appear.
+  var phoneKbd = document.querySelector(".phone_keyboard");
+  if (phoneKbd) {
+    // The soft keyboard is fully owned here. v86's own "phone_keyboard" input
+    // path maps characters through a US layout table (wrong on AZERTY) and
+    // throws on insertLineBreak-style events, so it never sees these events.
+    // Print keys arrive as input events, the navigation keys as keydown.
+    var composing = false, lastEnter = 0;
+
+    phoneKbd.addEventListener("keydown", function (e) {
+      if (e.isComposing) return;
+      var k = e.key;
+      if (k === "Enter") { e.stopPropagation(); sendKeyBytes(ENTER); lastEnter = Date.now(); return; }
+      if (k === "Backspace") { e.stopPropagation(); sendKeyBytes([0x0E, 0x8E]); return; }
+      if (k === "Tab") { e.stopPropagation(); sendKeyBytes([0x0F, 0x8F]); return; }
+      if (k === "Escape") { e.stopPropagation(); sendKeyBytes([0x01, 0x81]); return; }
+      if (k && k.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) e.stopPropagation();
+    }, true);
+
+    phoneKbd.addEventListener("compositionstart", function () { composing = true; });
+    phoneKbd.addEventListener("compositionend", function (e) {
+      composing = false;
+      var text = e.data || phoneKbd.value;
+      phoneKbd.value = "";
+      if (text) sendText(text);
+    });
+
+    phoneKbd.addEventListener("input", function (e) {
+      e.stopPropagation();
+      setTimeout(function () { phoneKbd.value = ""; }, 0);
+      if (composing || e.isComposing) return;
+      if (e.inputType === "insertLineBreak" || e.inputType === "insertParagraph") {
+        // Some keyboards only report Enter as an input, not as a keydown.
+        if (Date.now() - lastEnter > 150) sendKeyBytes(ENTER);
+        return;
+      }
+      if (e.inputType && e.inputType.indexOf("delete") === 0) return;
+      if (typeof e.data === "string" && e.data) sendText(e.data);
+    });
+
+    phoneKbd.addEventListener("paste", function (e) {
+      e.preventDefault();
+      var data = e.clipboardData || window.clipboardData;
+      var text = data && data.getData("text/plain");
+      if (text) sendText(text);
+    });
+  }
+  $("term").addEventListener("pointerdown", function (e) {
+    if (!phoneKbd) return;
+    var coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+    if (e.pointerType === "touch" || e.pointerType === "pen" ||
+        (e.pointerType === "" && coarse)) {
+      setTimeout(function () {
+        try { phoneKbd.focus({ preventScroll: true }); } catch (x) { phoneKbd.focus(); }
+      }, 0);
+    }
   });
 
   $("btnLayout").addEventListener("click", function () { toggleLayout(); this.blur(); });
@@ -724,6 +1020,7 @@
       var raw = await emu.save_state();
       var z = await gzip(raw).catch(function () { return null; });
       var blob = new Blob([z || raw], { type: "application/octet-stream" });
+      raw = null; z = null;
       downloadBlob(blob, "linux-classroom-" + new Date().toISOString().slice(0, 10) + ".bin");
       setStatus("exported " + mb(blob.size));
     } catch (e) {
@@ -749,6 +1046,7 @@
       booted = true;
       emu.run();
       applyGuestLayout();
+      buf = null; raw = null;
       setStatus("imported " + clock());
       updateStorage();
     } catch (e) {
@@ -763,7 +1061,10 @@
     var golden = await readState(KEY_GOLDEN).catch(function () { return null; });
     if (!emu || !golden) { location.reload(); return; }
     try {
-      await emu.restore_state(await inflate(golden));
+      var raw = await inflate(golden);
+      golden = null;
+      await emu.restore_state(raw);
+      raw = null;
       booted = true;
       emu.run();
       applyGuestLayout();
@@ -817,7 +1118,12 @@
     }
   }, true);
 
-  setInterval(function () { saveNow(true); }, 60000);
+  // Save while the tab is visible, and only when the machine changed since the
+  // last snapshot; when it goes to the background the visibility handler below
+  // takes one snapshot regardless, so closing the tab never loses anything.
+  setInterval(function () {
+    if (document.visibilityState === "visible" && dirty) saveNow(true);
+  }, 60000);
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "hidden") saveNow(true);
   });
@@ -836,8 +1142,11 @@
 
   async function main() {
     try { LAYOUT = localStorage.getItem(LAYOUT_KEY) === "fr" ? "fr" : "us"; } catch (e) {}
-    try { fontSize = parseInt(localStorage.getItem(FONT_KEY), 10) || 20; } catch (e) {}
-    setFontSize(fontSize, false);
+    var savedFont = 0;
+    try { savedFont = parseInt(localStorage.getItem(FONT_KEY), 10) || 0; } catch (e) {}
+    // 80 columns never fit a phone; start smaller there and let A+/A- adjust.
+    var narrow = window.matchMedia && window.matchMedia("(max-width:600px)").matches;
+    setFontSize(savedFont || (narrow ? 14 : 20), false);
     $("btnLayout").textContent = "Keyboard: " + LAYOUT.toUpperCase();
 
     groups = loadCommands();
