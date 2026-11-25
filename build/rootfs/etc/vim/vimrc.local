@@ -1,4 +1,4 @@
-" Classroom defaults. /etc/vim/vimrc sources this file last.
+" linuxbox defaults. /etc/vim/vimrc sources this file last.
 " Alpine's vimrc turns syntax on but not filetype detection, so highlighting
 " would never start from a file extension without the line below.
 filetype on

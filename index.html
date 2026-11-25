@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Linux Classroom</title>
+<title>linuxbox</title>
 <link rel="icon" href="data:,">
 <style>
   :root {
@@ -171,7 +171,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Linux Classroom</h1>
+    <h1>linuxbox</h1>
     <button id="btnSide" title="Show or hide the command list" aria-expanded="false" aria-controls="side">Menu</button>
     <span id="status">starting...</span>
     <button id="btnLayout" title="Switch keyboard layout (Ctrl+Alt+K)">Keyboard: US</button>
@@ -267,6 +267,7 @@
   // works in 192 MB, and the dump is compressed before it is stored.
   var MEMORY = 192 * 1024 * 1024;
 
+  // Names kept from before the rename so saved machines still restore.
   var DB = "linux-classroom", STORE = "kv";
   var KEY_STATE = "machine-state", KEY_GOLDEN = "machine-golden";
   var CMD_KEY = "classroom-commands", LAYOUT_KEY = "classroom-layout";
@@ -1082,7 +1083,7 @@
       var z = await gzip(raw).catch(function () { return null; });
       var blob = new Blob([z || raw], { type: "application/octet-stream" });
       raw = null; z = null;
-      downloadBlob(blob, "linux-classroom-" + new Date().toISOString().slice(0, 10) + ".bin");
+      downloadBlob(blob, "linuxbox-" + new Date().toISOString().slice(0, 10) + ".bin");
       setStatus("exported " + mb(blob.size));
     } catch (e) {
       setStatus("export failed: " + (e && e.message || e), true);

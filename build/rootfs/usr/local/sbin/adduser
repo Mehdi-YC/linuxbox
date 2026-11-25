@@ -1,5 +1,5 @@
 #!/bin/sh
-# Classroom default: new interactive accounts get bash instead of /bin/sh.
+# linuxbox default: new interactive accounts get bash instead of /bin/sh.
 # `adduser bob team` (two arguments) means "add bob to a group", so only
 # inject -s when this really is a new user.
 case " $* " in

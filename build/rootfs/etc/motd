@@ -1,5 +1,5 @@
 
-  Linux Classroom -- Alpine Linux with bash, nano, vim, man and gcc.
+  linuxbox -- Alpine Linux with bash, nano, vim, man and gcc.
 
   Useful: ls, cd, cat, nano <file>, vim <file>, man <command>, apropos <word>
           gcc hello.c -o hello, doas <cmd>

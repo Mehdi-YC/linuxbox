@@ -1,4 +1,4 @@
-# Linux Classroom
+# linuxbox
 
 A Linux terminal in the browser for students. Nothing to install on their side.
 

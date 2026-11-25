@@ -9,8 +9,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD="$ROOT/.build"
 V86="$BUILD/v86"
 V86_COMMIT=9457e7a2f6890f3133bb6ac0f749e588f63c4c36   # pinned v86
-IMAGE=linux-classroom-alpine
-CONTAINER=linux-classroom-alpine-container
+IMAGE=linuxbox-alpine
+CONTAINER=linuxbox-alpine-container
 ROOTFS_TAR="$BUILD/alpine-rootfs.tar"
 
 DOCKER=${DOCKER:-docker}
@@ -57,5 +57,5 @@ EOF
 echo
 echo "image version: $HASH"
 du -sh "$ROOT/alpine-fs.json" "$ROOT/alpine-rootfs-flat"
-ls -lS "$ROOT/alpine-rootfs-flat" | head -4
+ls -lS "$ROOT/alpine-rootfs-flat" | head -4 || true
 echo "done."

@@ -1,4 +1,4 @@
-# Linux Classroom guest image.
+# linuxbox guest image.
 #
 # Everything a student needs must be installed here, at build time. The guest
 # also has internet at runtime through the page's relay, but the image has to
@@ -100,7 +100,7 @@ RUN awk -F: 'BEGIN{OFS=":"} { if ($7=="/bin/sh" || $7=="/bin/ash") $7="/bin/bash
 # files from build/rootfs/ (same paths inside the image)
 #   /usr/local/sbin/adduser        new accounts get bash
 #   /etc/doas.conf                 passwordless doas for wheel
-#   /etc/profile.d/classroom.sh    bash prompt and LANG
+#   /etc/profile.d/linuxbox.sh     bash prompt and LANG
 #   /etc/skel/.bashrc              bash defaults for new accounts
 #   /etc/motd                      short welcome text
 # ---------------------------------------------------------------------------
