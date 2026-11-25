@@ -8,7 +8,7 @@
 <style>
   :root {
     --bg:#0f1115; --panel:#171a21; --line:#2a2f3a; --text:#e6e6e6; --muted:#8b93a1;
-    --accent:#4fd1c5; --danger:#f87171;
+    --accent:#4fd1c5; --danger:#f87171; --term-green:#55ff55;
     --term-font:20px;
     --ui-font:17px;
   }
@@ -28,11 +28,11 @@
     padding:10px 16px; background:var(--panel); border-bottom:1px solid var(--line);
   }
   header h1 { font-size:20px; margin:0 10px 0 0; letter-spacing:.02em; }
-  #status { color:var(--accent); font-size:15px; margin-right:auto; }
+  #status { color:var(--term-green); font-size:15px; margin-right:auto; }
   #status.bad { color:var(--danger); }
 
   button {
-    background:#222733; color:var(--text); border:1px solid var(--line); border-radius:8px;
+    background:#222733; color:var(--text); border:1px solid var(--line); border-radius:0;
     padding:8px 14px; cursor:pointer; font:inherit; font-size:15px;
     touch-action:manipulation; -webkit-tap-highlight-color:transparent;
     transition:background .15s, border-color .15s, transform .06s;
@@ -41,13 +41,17 @@
   button:active { transform:translateY(1px); }
   button:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
   button.danger:hover { border-color:var(--danger); color:var(--danger); }
+  #btnSave { color:var(--term-green); border-color:rgba(85,255,85,.55); }
+  #btnSave:hover { background:rgba(85,255,85,.12); border-color:var(--term-green); }
+  #btnReset { color:var(--danger); border-color:rgba(248,113,113,.55); }
+  #btnReset:hover { background:rgba(248,113,113,.12); border-color:var(--danger); }
   button.key { font-family:"DejaVu Sans Mono", monospace; font-size:15px; padding:8px 12px; }
   .zoombox { display:flex; gap:4px; align-items:center; }
   .zoombox button { padding:6px 10px; font-size:15px; }
   #btnSide, #btnSideClose { display:none; }
 
   #term {
-    position:relative; overflow:auto; padding:0; -webkit-overflow-scrolling:touch;
+    position:relative; overflow:auto; padding:8px 0 0 0; -webkit-overflow-scrolling:touch;
     background:#000; display:flex; align-items:flex-start; justify-content:flex-start;
   }
   #screen_container {
@@ -82,7 +86,7 @@
   #extraKeys button {
     grid-column:span 2;
     padding:11px 2px; font:600 13px/1 "DejaVu Sans Mono", monospace;
-    border-radius:7px; min-width:0; overflow:hidden; white-space:nowrap;
+    border-radius:0; min-width:0; overflow:hidden; white-space:nowrap;
     letter-spacing:.03em;
   }
   #extraKeys button.wide { grid-column:span 7; font-size:12px; }
@@ -101,7 +105,7 @@
     background:#0009; -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px);
   }
 
-  details { margin-bottom:10px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#1b1f28; transition:border-color .15s; }
+  details { margin-bottom:10px; border:1px solid var(--line); border-radius:0; padding:8px 10px; background:#1b1f28; transition:border-color .15s; }
   details:hover { border-color:#343b49; }
   summary { cursor:pointer; font-weight:600; padding:2px 0; }
   summary::marker { color:var(--muted); }
@@ -116,7 +120,7 @@
 
   input, textarea {
     width:100%; background:#0f1115; color:var(--text); border:1px solid var(--line);
-    border-radius:8px; padding:10px 12px; margin-bottom:8px; font:inherit; font-size:16px;
+    border-radius:0; padding:10px 12px; margin-bottom:8px; font:inherit; font-size:16px;
   }
   textarea { resize:vertical; min-height:64px; font-family:"DejaVu Sans Mono", monospace; }
   .row { display:flex; gap:8px; flex-wrap:wrap; }
@@ -138,7 +142,7 @@
     #btnSide { display:inline-block; }
     #btnSideClose { display:inline-block; }
     #extraKeys { display:grid; }
-    #term { padding:0; align-items:flex-start; justify-content:flex-start; }
+    #term { padding:8px 0 0 0; align-items:flex-start; justify-content:flex-start; }
     #term .hint { display:none; }
 
     /* the command list becomes a bottom sheet instead of eating the screen */
@@ -146,7 +150,7 @@
     body.show-side aside {
       display:block; position:fixed; left:0; right:0; bottom:0; z-index:30;
       max-height:75dvh; border-left:0; border-top:1px solid var(--line);
-      border-radius:16px 16px 0 0; box-shadow:0 -12px 40px #000c;
+      border-radius:0; box-shadow:0 -12px 40px #000c;
       padding-bottom:calc(18px + env(safe-area-inset-bottom));
       animation:sheet .18s ease-out;
     }
@@ -178,8 +182,8 @@
     <button id="btnSave" title="Save the whole machine in this browser">Save</button>
     <button id="btnExport" title="Download your machine as a file (backup)">Export</button>
     <button id="btnImport" title="Load a machine file you exported earlier">Import</button>
-    <button id="btnReset" class="danger" title="Forget your changes and go back to a clean machine">Reset</button>
     <button id="btnFull">Fullscreen</button>
+    <button id="btnReset" class="danger" title="Forget your changes and go back to a clean machine">Reset</button>
     <input id="fileImport" type="file" hidden>
   </header>
 
@@ -662,7 +666,6 @@
       opt.value = g.name; list.appendChild(opt);
 
       var d = document.createElement("details");
-      d.open = gi < 2;
       var sm = document.createElement("summary");
       sm.textContent = g.name; d.appendChild(sm);
 
