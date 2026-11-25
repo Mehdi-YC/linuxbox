@@ -19,9 +19,18 @@ A Linux terminal in the browser for students. Nothing to install on their side.
 
 ## Run it
 
+The guest filesystem is generated, not committed. Build it once, then serve
+the folder:
+
 ```
+./build.sh
 python3 -m http.server 8000
 ```
+
+`./build.sh` needs Docker, git, python3 and zstd. The first run clones v86 into
+`.build/`, downloads the Alpine packages and takes a few minutes; later runs
+reuse that cache. It writes `alpine-fs.json`, `alpine-rootfs-flat/` and
+`image-version.json` next to `index.html`.
 
 Open http://localhost:8000. The first boot takes a while. After that the machine
 is saved automatically (once a minute when it has changed, and whenever the tab
@@ -43,16 +52,15 @@ libv86.js             emulator, from npm v86
 v86.wasm              emulator
 seabios.bin           BIOS
 vgabios.bin           BIOS
-alpine-fs.json        guest filesystem metadata
-alpine-rootfs-flat/   guest filesystem contents (one file per chunk)
-image-version.json    hash of alpine-fs.json, written by the build
+build.sh              builds the guest image (generated files are ignored)
 build/Dockerfile      how the guest image is built
-build/build.sh        builds alpine-fs.json and alpine-rootfs-flat/
+build/build.sh        the build itself: alpine-fs.json and alpine-rootfs-flat/
+build/rootfs/         files copied into the guest (motd, doas.conf, bashrc…)
 ```
 
-`build/build.sh` needs Docker, git, python3 and zstd. It clones v86 (pinned
-commit) into `.build/` only to use its filesystem tools, builds the image, and
-writes the guest files plus `image-version.json` into the repository root.
+`alpine-fs.json`, `alpine-rootfs-flat/` and `image-version.json` are generated
+by `./build.sh` and deliberately kept out of git; `build/build.sh` clones v86
+(pinned commit) into `.build/` only to use its filesystem tools.
 
 ## The guest machine
 
@@ -69,10 +77,10 @@ At runtime the guest also has internet through the relay, so `apk add` and
 - keymaps for both layouts are in `/usr/share/bkeymaps/`; the page changes the
   kernel keymap over the serial console, so the student's shell is not disturbed
 
-To add packages, edit `build/Dockerfile`, run `build/build.sh`, and commit the
-regenerated guest files. Rebuilding changes `image-version.json`, and old saved
-machines are then discarded automatically instead of being restored against a
-mismatched image.
+To add packages, edit `build/Dockerfile` and run `./build.sh` (or
+`build/build.sh`); the generated files stay in place and are not committed.
+Rebuilding changes `image-version.json`, and old saved machines are then
+discarded automatically instead of being restored against a mismatched image.
 
 ## Saving
 

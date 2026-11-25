@@ -1,3 +1,8 @@
+# Generated guest image (recreate with ./build.sh)
+/alpine-fs.json
+/alpine-rootfs-flat/
+/image-version.json
+
 # v86 checkout, exported rootfs and intermediate tarballs
 .build/
 build/*.tar

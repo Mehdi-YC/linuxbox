@@ -1,6 +1,4 @@
-# Emulator blobs and the guest filesystem are binary
+# Emulator blobs are binary
 *.wasm binary
 *.bin binary
 *.zst binary
-alpine-rootfs-flat/** binary
-alpine-fs.json -diff
